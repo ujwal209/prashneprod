@@ -1,37 +1,29 @@
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.example.com",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: false, // true for 465, false for other ports
-    auth: {
-        user: process.env.SMTP_USER || "user",
-        pass: process.env.SMTP_PASS || "pass",
-    },
+  service: "gmail", // Or your SMTP host
+  auth: {
+    user: process.env.EMAIL_USER, // Add to .env.local
+    pass: process.env.EMAIL_PASS, // Add to .env.local
+  },
 });
 
-export async function sendWelcomeEmail(to: string, name: string) {
-    try {
-        const info = await transporter.sendMail({
-            from: '"Prashne" <no-reply@prashne.com>', // sender address
-            to,
-            subject: "Welcome to Prashne!", // Subject line
-            text: `Hello ${name},\n\nWelcome to Prashne! We are excited to have you on board.\n\nBest regards,\nThe Prashne Team`, // plain text body
-            html: `
-        <div style="font-family: sans-serif; padding: 20px;">
-            <h1>Welcome via NodeMailer!</h1>
-            <p>Hello <strong>${name}</strong>,</p>
-            <p>Welcome to <strong>Prashne</strong>. We are excited to have you on board practicing coding and getting hired!</p>
-            <p>Please click the link below to get started:</p>
-            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard" style="background: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
+export async function sendOtpEmail(to: string, otp: string) {
+  const mailOptions = {
+    from: '"Prashne Auth" <no-reply@prashne.com>',
+    to,
+    subject: "Your Verification Code - Prashne",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #4F46E5;">Verify your Email</h2>
+        <p>Welcome to Prashne! Use the code below to complete your signup.</p>
+        <div style="background: #F3F4F6; padding: 20px; text-align: center; border-radius: 8px; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #1F2937;">
+          ${otp}
         </div>
-      `,
-        });
+        <p style="margin-top: 20px; color: #6B7280; font-size: 14px;">This code expires in 10 minutes.</p>
+      </div>
+    `,
+  };
 
-        console.log("Message sent: %s", info.messageId);
-        return { success: true, messageId: info.messageId };
-    } catch (error) {
-        console.error("Error sending email:", error);
-        return { success: false, error };
-    }
+  await transporter.sendMail(mailOptions);
 }

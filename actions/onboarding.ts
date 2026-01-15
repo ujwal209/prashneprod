@@ -1,84 +1,63 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { createAdminClient } from "@/utils/supabase/admin";
-import { z } from "zod";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
+// Define schema with looser validation for the role
 const OnboardingSchema = z.object({
-    experience_years: z.enum(["0", "1-3", "3-5", "5+"]),
-    current_job_title: z.string().min(2, {
-        message: "Current job title must be at least 2 characters.",
-    }),
-    target_job_title: z.enum(["Frontend", "Backend", "Full Stack", "AI/ML"]),
-    primary_goal: z.enum(["Interview Prep", "Upskilling"]),
+  experience_years: z.string().min(1, "Please select your experience level."),
+  current_job_title: z.string().min(2, "Job title is required."),
+  
+  // FIX: Remove .enum() or .refine() and just use .min(2)
+  // This allows "Frontend" OR "Custom Role" OR anything else
+  target_job_title: z.string().min(2, "Target role is required."),
+  
+  primary_goal: z.string().min(1, "Please select a primary goal."),
 });
 
 export async function completeOnboarding(prevState: any, formData: FormData) {
-    const supabase = await createClient();
+  const supabase = await createClient();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+  // 1. Get User
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { message: "Unauthorized" };
 
-    if (!user) {
-        return {
-            message: "Unauthorized",
-        };
-    }
+  // 2. Extract Data
+  const rawData = {
+    experience_years: formData.get("experience_years"),
+    current_job_title: formData.get("current_job_title"),
+    target_job_title: formData.get("target_job_title"),
+    primary_goal: formData.get("primary_goal"),
+  };
 
-    const rawData = {
-        experience_years: formData.get("experience_years"),
-        current_job_title: formData.get("current_job_title"),
-        target_job_title: formData.get("target_job_title"),
-        primary_goal: formData.get("primary_goal"),
+  // 3. Validate
+  const validatedFields = OnboardingSchema.safeParse(rawData);
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Please fill in all required fields.",
     };
+  }
 
-    const validated = OnboardingSchema.safeParse(rawData);
+  // 4. Update Database
+  const { error } = await supabase
+    .from("candidates")
+    .update({
+      experience_years: validatedFields.data.experience_years,
+      current_job_title: validatedFields.data.current_job_title,
+      target_job_title: validatedFields.data.target_job_title,
+      primary_goal: validatedFields.data.primary_goal,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
 
-    if (!validated.success) {
-        // Return errors flattened for easy client-side handling
-        return {
-            errors: validated.error.flatten().fieldErrors,
-            message: "Please ensure all fields are selected and correctly filled.",
-        };
-    }
+  if (error) {
+    console.error("Onboarding Error:", error);
+    return { message: "Failed to save profile. Please try again." };
+  }
 
-    const { experience_years, current_job_title, target_job_title, primary_goal } = validated.data;
-
-    // Fix: Ensure we use upsert with a valid user ID. 
-    // We are trusting the auth.uid() from the session which is secure.
-    // We provide full_name and email from metadata to satisfy NOT NULL constraints if this is a new row.
-
-    // Note: Schema from user may vary, but based on recent interactions, we need full_name/email.
-    const fullName = user.user_metadata?.full_name || "Candidate";
-    const email = user.email || "";
-
-    // CHANGE: Use Admin Client to bypass RLS
-    const supabaseAdmin = createAdminClient();
-
-    const { error } = await supabaseAdmin
-        .from("candidates")
-        .upsert({
-            id: user.id,
-            full_name: fullName,
-            personal_email: email,
-            experience_years,
-            current_job_title,
-            target_job_title,
-            primary_goal,
-            // is_onboarding_completed: true,  <-- REMOVED assuming column doesn't exist in Step 181 schema
-            // If user added it, uncomment. But middleware checks experience_years presence so this is fine.
-        }, { onConflict: 'id' });
-
-    if (error) {
-        console.error("Onboarding Database Error:", error);
-        return {
-            message: "Failed to update profile. Database error.",
-        };
-    }
-
-    revalidatePath("/candidate/dashboard");
-    redirect("/candidate/dashboard");
+  // 5. Redirect
+  redirect("/candidate/dashboard");
 }

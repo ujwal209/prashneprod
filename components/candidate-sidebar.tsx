@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image"; // 👈 Imported
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -11,7 +12,6 @@ import {
   Settings,
   Menu,
   User,
-  Sparkles,
   LifeBuoy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,6 @@ function NavItem({ item, isActive, onClick }: { item: any, isActive: boolean, on
       />
       <span>{item.title}</span>
       
-      {/* Optional: Add a subtle indicator for active state */}
       {isActive && (
         <div className="ml-auto size-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse" />
       )}
@@ -70,10 +69,19 @@ export function CandidateSidebar() {
       
       {/* Logo Header */}
       <div className="flex h-16 shrink-0 items-center px-6 border-b border-zinc-100 dark:border-zinc-800/50">
-        <Link href="/candidate/dashboard" className="flex items-center gap-2.5 group">
-          <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 shadow-lg shadow-indigo-500/20 transition-transform group-hover:scale-105">
-            <Sparkles className="size-4 text-white fill-white/20" />
+        <Link href="/candidate/dashboard" className="flex items-center gap-3 group">
+          
+          {/* Logo Container (White Background) */}
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-800 transition-transform group-hover:scale-105 overflow-hidden">
+            <Image 
+              src="/logo.png" 
+              alt="Prashne Logo" 
+              width={20} 
+              height={20} 
+              className="object-contain" 
+            />
           </div>
+          
           <span className="font-bold text-lg tracking-tight text-zinc-900 dark:text-white">
             Prashne
           </span>
@@ -83,7 +91,6 @@ export function CandidateSidebar() {
       {/* Navigation Content */}
       <div className="flex-1 flex flex-col gap-6 p-4 overflow-y-auto no-scrollbar">
         
-        {/* Platform Section */}
         <div className="space-y-1">
           <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-600 font-mono">
             Platform
@@ -93,7 +100,6 @@ export function CandidateSidebar() {
           ))}
         </div>
 
-        {/* Account Section */}
         <div className="space-y-1">
           <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-600 font-mono">
             Account
@@ -103,7 +109,7 @@ export function CandidateSidebar() {
           ))}
         </div>
 
-        {/* Help Card (Optional Flair) */}
+        {/* Help Card */}
         <div className="mt-auto">
            <div className="rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 p-4">
               <div className="flex items-center gap-3 mb-2">
@@ -159,10 +165,19 @@ export function MobileSidebar() {
         
         {/* Mobile Header */}
         <div className="flex h-16 items-center px-6 border-b border-zinc-100 dark:border-zinc-800">
-          <Link href="/candidate/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white">
-              <Sparkles className="size-4 fill-white/20" />
+          <Link href="/candidate/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-3">
+            
+            {/* Logo Container (White Background) */}
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-800 overflow-hidden">
+              <Image 
+                src="/logo.png" 
+                alt="Prashne Logo" 
+                width={20} 
+                height={20} 
+                className="object-contain" 
+              />
             </div>
+            
             <span className="font-bold text-lg text-zinc-900 dark:text-white">Prashne</span>
           </Link>
         </div>
