@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { verifyOtpAction, resendOtpAction } from "@/actions/auth"; // 👈 Import new action
+import { verifyOtpAction, resendOtpAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,19 +10,18 @@ import { Loader2, KeyRound, AlertCircle, CheckCircle2, RefreshCw } from "lucide-
 
 const initialState = { message: "" };
 
-export default function VerifyOtpPage() {
+// 1. Create the inner component that uses searchParams
+function VerifyOtpContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
   
-  // Verification Form State
   const [state, formAction, isPending] = useActionState(verifyOtpAction, initialState);
 
   // Resend Logic State
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [countdown, setCountdown] = useState(0); // 0 means ready to resend
+  const [countdown, setCountdown] = useState(0); 
 
-  // Handle Countdown Timer
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -36,10 +35,9 @@ export default function VerifyOtpPage() {
 
     try {
       const result = await resendOtpAction(email);
-      
       if (result.success) {
         setResendMessage({ type: 'success', text: "New code sent! Check your inbox." });
-        setCountdown(60); // Start 60s cooldown
+        setCountdown(60); 
       } else {
         setResendMessage({ type: 'error', text: result.message });
       }
@@ -75,7 +73,6 @@ export default function VerifyOtpPage() {
           </div>
         </div>
 
-        {/* Verification Error */}
         {state?.message && (
           <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm flex items-center gap-2 border border-red-200 dark:border-red-900/50">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -83,7 +80,6 @@ export default function VerifyOtpPage() {
           </div>
         )}
 
-        {/* Resend Success/Error Message */}
         {resendMessage && (
           <div className={`p-3 rounded-lg text-sm flex items-center gap-2 border ${
             resendMessage.type === 'success' 
@@ -100,7 +96,6 @@ export default function VerifyOtpPage() {
         </Button>
       </form>
 
-      {/* --- Resend Section --- */}
       <div className="text-center">
         <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
           Didn't receive the code?
@@ -123,5 +118,14 @@ export default function VerifyOtpPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+// 2. Wrap it in Suspense for the default export
+export default function VerifyOtpPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-zinc-500" /></div>}>
+      <VerifyOtpContent />
+    </Suspense>
   );
 }
