@@ -12,13 +12,11 @@ import {
   LogOut, 
   Menu, 
   X,
-  FileText,     // View Resumes
-  ScanLine,     // Resume Parser
-  Zap,          // Matchmaking
-  Bot           // Prashne Agent
+  FileText,
+  Bot
 } from "lucide-react";
 import { signout } from "@/actions/auth";
-import { ModeToggle } from "@/components/mode-toggle"; // <--- FIXED IMPORT
+import { ModeToggle } from "@/components/mode-toggle"; 
 import { cn } from "@/lib/utils"; 
 
 export default function HrAdminLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +25,7 @@ export default function HrAdminLayout({ children }: { children: React.ReactNode 
   return (
     <div className="flex h-screen w-full bg-[#F9FAFB] dark:bg-black font-sans text-zinc-900 dark:text-zinc-100 overflow-hidden">
       
-      {/* --- DESKTOP SIDEBAR (Hidden on Mobile) --- */}
+      {/* --- DESKTOP SIDEBAR --- */}
       <aside className="w-[280px] flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] hidden md:flex shadow-sm z-30">
         <SidebarContent />
       </aside>
@@ -35,7 +33,7 @@ export default function HrAdminLayout({ children }: { children: React.ReactNode 
       {/* --- MAIN AREA --- */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
         
-        {/* --- MOBILE HEADER (Visible only on small screens) --- */}
+        {/* --- MOBILE HEADER --- */}
         <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] flex items-center justify-between px-4 md:hidden z-20 shrink-0">
           <div className="flex items-center gap-2">
              <div className="relative h-6 w-6">
@@ -54,22 +52,19 @@ export default function HrAdminLayout({ children }: { children: React.ReactNode 
           </div>
         </header>
 
-        {/* --- CONTENT SCROLL AREA --- */}
+        {/* --- CONTENT AREA --- */}
         <main className="flex-1 overflow-y-auto p-0">
           {children}
         </main>
       </div>
 
-      {/* --- MOBILE DRAWER (Overlay) --- */}
+      {/* --- MOBILE DRAWER --- */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
-          {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm"
             onClick={() => setIsMobileOpen(false)}
           />
-          
-          {/* Drawer Panel */}
           <div className="relative w-[85%] max-w-[300px] bg-white dark:bg-[#09090b] h-full shadow-2xl flex flex-col border-r border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-left duration-200">
             <button 
               onClick={() => setIsMobileOpen(false)}
@@ -103,8 +98,8 @@ function SidebarContent() {
         </div>
       </div>
 
-      {/* Navigation Scroll Area */}
-      <nav className="flex-1 px-4 space-y-6 overflow-y-auto no-scrollbar py-2">
+      {/* Navigation Area */}
+      <nav className="flex-1 px-4 space-y-6 py-2">
         
         {/* Group 1: Core Management */}
         <div className="space-y-1">
@@ -114,21 +109,14 @@ function SidebarContent() {
           <NavItem href="/hr-admin/team" icon={<Users size={18} />} label="Team & Recruiters" />
         </div>
 
-        {/* Group 2: Resume Intelligence */}
+        {/* Group 2: Talent & AI */}
         <div className="space-y-1">
-          <SectionLabel>Resume Intelligence</SectionLabel>
-          <NavItem href="/hr-admin/resumes" icon={<FileText size={18} />} label="View Resumes" />
-          <NavItem href="/hr-admin/resumes/parse" icon={<ScanLine size={18} />} label="Resume Parser" />
+          <SectionLabel>Talent Intelligence</SectionLabel>
+          <NavItem href="/hr-admin/resumes" icon={<FileText size={18} />} label="Resume Vault" />
+          <NavItem href="/hr-admin/chat" icon={<Bot size={18} />} label="Chat Assistant" />
         </div>
 
-        {/* Group 3: AI Tools */}
-        <div className="space-y-1">
-          <SectionLabel>AI & Matching</SectionLabel>
-          <NavItem href="/hr-admin/match" icon={<Zap size={18} />} label="AI Matchmaking" />
-          <NavItem href="/hr-admin/chat" icon={<Bot size={18} />} label="Prashne Agent" />
-        </div>
-
-        {/* Group 4: Config */}
+        {/* Group 3: Config */}
         <div className="space-y-1">
           <SectionLabel>Configuration</SectionLabel>
           <NavItem href="/hr-admin/settings" icon={<Settings size={18} />} label="Settings" />
@@ -184,8 +172,6 @@ function NavItem({ href, icon, label }: { href: string, icon: React.ReactNode, l
         {icon}
       </span>
       {label}
-      
-      {/* Active Indicator Dot */}
       {isActive && (
         <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
       )}

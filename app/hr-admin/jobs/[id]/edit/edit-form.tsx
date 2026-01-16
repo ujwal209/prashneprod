@@ -46,23 +46,27 @@ export function EditJobForm({ job }: { job: any }) {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8 max-w-5xl mx-auto w-full">
       
       {/* Header */}
       <div className="animate-in fade-in slide-in-from-top-4 duration-500">
         <Link href={`/hr-admin/jobs/${job.id}`} className="flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 mb-4 transition-colors w-fit">
           <ArrowLeft size={14} /> Back to Job Details
         </Link>
-        <div className="flex items-center justify-between">
+        
+        {/* Responsive Header Container */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
-                <h1 className="text-3xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 Edit Job Listing
                 </h1>
-                <p className="text-zinc-500 dark:text-zinc-400 mt-2">
+                <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400 mt-1 md:mt-2">
                 Update job details, status, or description.
                 </p>
             </div>
-            <div className="hidden md:block">
+            
+            {/* Status Badge - Now visible and stacked on mobile */}
+            <div className="self-start sm:self-center">
                 <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
                     job.status === 'active' 
                     ? "bg-emerald-50 text-emerald-700 border-emerald-100"
@@ -74,7 +78,7 @@ export function EditJobForm({ job }: { job: any }) {
         </div>
       </div>
 
-      <form action={formAction} className="bg-white dark:bg-[#09090b] p-6 md:p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-8">
+      <form action={formAction} className="bg-white dark:bg-[#09090b] p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6 md:space-y-8">
         
         {/* Hidden ID field for the server action */}
         <input type="hidden" name="jobId" value={job.id} />
@@ -88,12 +92,12 @@ export function EditJobForm({ job }: { job: any }) {
             required 
             value={jobTitle}
             onChange={(e) => setJobTitle(e.target.value)}
-            className="h-12 text-base bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-black transition-all"
+            className="h-11 md:h-12 text-base bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-black transition-all"
           />
         </div>
 
-        {/* Row 1 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Row 1 - Stacks on Mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="space-y-2">
             <Label htmlFor="department">Department</Label>
             <Input id="department" name="department" defaultValue={job.department} className="h-11 bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800" />
@@ -104,8 +108,8 @@ export function EditJobForm({ job }: { job: any }) {
           </div>
         </div>
 
-        {/* Row 2 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Row 2 - Stacks on Mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="space-y-2">
             <Label htmlFor="type">Employment Type</Label>
             <Select name="type" defaultValue={job.employment_type || "Full-time"}>
@@ -141,8 +145,8 @@ export function EditJobForm({ job }: { job: any }) {
             </Select>
         </div>
 
-        {/* AI Generator Box */}
-        <div className="relative overflow-hidden p-6 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl space-y-4">
+        {/* AI Generator Box - Responsive Padding & Layout */}
+        <div className="relative overflow-hidden p-4 md:p-6 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <Label className="text-indigo-900 dark:text-indigo-200 font-bold flex items-center gap-2 text-base">
               <Sparkles size={18} className="text-indigo-500" /> 
@@ -152,7 +156,7 @@ export function EditJobForm({ job }: { job: any }) {
               type="button" 
               onClick={handleAiGenerate}
               disabled={isGenerating || !jobTitle}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md shadow-indigo-500/20 transition-all disabled:opacity-70"
+              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md shadow-indigo-500/20 transition-all disabled:opacity-70"
             >
               {isGenerating ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Wand2 className="mr-2 h-4 w-4" />}
               {isGenerating ? "Rewriting..." : "Rewrite with AI"}
@@ -178,7 +182,8 @@ export function EditJobForm({ job }: { job: any }) {
             required 
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="min-h-[400px] bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 leading-relaxed font-mono text-sm focus:bg-white dark:focus:bg-black transition-all resize-y"
+            // Adjusted min-height for mobile vs desktop
+            className="min-h-[250px] md:min-h-[400px] bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 leading-relaxed font-mono text-sm focus:bg-white dark:focus:bg-black transition-all resize-y"
           />
         </div>
 
@@ -189,15 +194,15 @@ export function EditJobForm({ job }: { job: any }) {
           </div>
         )}
 
-        {/* Actions */}
-        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-4">
-          <Link href={`/hr-admin/jobs/${job.id}`} className="w-full">
-            <Button type="button" variant="outline" className="w-full h-12">Cancel</Button>
+        {/* Actions - Stacks reverse on mobile for better thumb reach */}
+        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+          <Link href={`/hr-admin/jobs/${job.id}`} className="w-full sm:w-auto">
+            <Button type="button" variant="outline" className="w-full sm:w-32 h-11 md:h-12">Cancel</Button>
           </Link>
           <Button 
             type="submit" 
             disabled={isPending} 
-            className="w-full h-12 text-base font-medium bg-zinc-900 dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-lg"
+            className="w-full sm:w-auto sm:min-w-[160px] h-11 md:h-12 text-base font-medium bg-zinc-900 dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-lg"
           >
             {isPending ? (
                 <>

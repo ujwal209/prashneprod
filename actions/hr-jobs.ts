@@ -13,9 +13,7 @@ const supabaseAdmin = createSupabaseAdmin(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-// --- 1. GET JOBS (Updated with Search) ---
+// --- 1. GET JOBS (With Search) ---
 export async function getJobs(query: string = "") {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -48,7 +46,7 @@ export async function getJobs(query: string = "") {
   return data || [];
 }
 
-// --- 2. GET SINGLE JOB (New) ---
+// --- 2. GET SINGLE JOB (The Missing Function) ---
 export async function getJobById(id: string) {
   const { data } = await supabaseAdmin
     .from("jobs")
@@ -59,25 +57,12 @@ export async function getJobById(id: string) {
   return data;
 }
 
-// --- 3. CREATE JOB (Unchanged) ---
+// --- 3. CREATE JOB ---
 export async function createJobAction(prevState: any, formData: FormData) {
-  // ... (Your existing create logic here) ...
-  // Keep the code you already have, I am omitting it here to save space
-  return { success: false, message: "Use your existing create code here" }; 
-}
-
-// --- 4. AI GENERATOR (Unchanged) ---
-export async function generateAiJobDescription(title: string, skills: string) {
-    // ... (Your existing AI logic) ...
-    return { success: false, description: "Use your existing AI code here" };
-}
-
-export async function updateJobAction(prevState: any, formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: "Unauthorized" };
 
-  // 1. Resolve Company ID (Security Check)
   let companyId = null;
   const { data: admin } = await supabaseAdmin.from("hr_admins").select("company_id").eq("id", user.id).single();
   if (admin) companyId = admin.company_id;
@@ -88,7 +73,48 @@ export async function updateJobAction(prevState: any, formData: FormData) {
 
   if (!companyId) return { success: false, message: "Company not found." };
 
-  // 2. Extract Data
+  const title = formData.get("title") as string;
+  const department = formData.get("department") as string;
+  const location = formData.get("location") as string;
+  const type = formData.get("type") as string;
+  const salary = formData.get("salary") as string;
+  const description = formData.get("description") as string;
+
+  if (!title || !description) return { success: false, message: "Title and Description are required." };
+
+  const { error } = await supabaseAdmin.from("jobs").insert({
+    company_id: companyId,
+    title,
+    department,
+    location,
+    employment_type: type,
+    salary_range: salary,
+    description,
+    status: 'active'
+  });
+
+  if (error) return { success: false, message: error.message };
+
+  revalidatePath("/hr-admin/jobs");
+  redirect("/hr-admin/jobs");
+}
+
+// --- 4. UPDATE JOB ---
+export async function updateJobAction(prevState: any, formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: "Unauthorized" };
+
+  let companyId = null;
+  const { data: admin } = await supabaseAdmin.from("hr_admins").select("company_id").eq("id", user.id).single();
+  if (admin) companyId = admin.company_id;
+  else {
+    const { data: hrUser } = await supabaseAdmin.from("hr_users").select("company_id").eq("id", user.id).single();
+    if (hrUser) companyId = hrUser.company_id;
+  }
+
+  if (!companyId) return { success: false, message: "Company not found." };
+
   const jobId = formData.get("jobId") as string;
   const title = formData.get("title") as string;
   const department = formData.get("department") as string;
@@ -100,7 +126,6 @@ export async function updateJobAction(prevState: any, formData: FormData) {
 
   if (!jobId || !title || !description) return { success: false, message: "Missing required fields." };
 
-  // 3. Update DB (Ensure the job belongs to the user's company)
   const { error } = await supabaseAdmin
     .from("jobs")
     .update({
@@ -113,11 +138,70 @@ export async function updateJobAction(prevState: any, formData: FormData) {
       status // active or closed
     })
     .eq("id", jobId)
-    .eq("company_id", companyId); // Critical security clause
+    .eq("company_id", companyId);
 
   if (error) return { success: false, message: error.message };
 
   revalidatePath("/hr-admin/jobs");
   revalidatePath(`/hr-admin/jobs/${jobId}`);
   redirect(`/hr-admin/jobs/${jobId}`);
+}
+
+// --- 5. AI GENERATOR (Full Job Object) ---
+export async function generateFullJobWithAI(userPrompt: string) {
+  "use server";
+  
+  if (!process.env.GROQ_API_KEY) {
+      console.error("GROQ_API_KEY is missing.");
+      return { success: false, message: "API Key missing." };
+  }
+
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    
+    const completion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert HR Manager. 
+          Generate a professional job listing based on the user's rough input.
+          
+          Return a valid JSON object with EXACTLY these keys:
+          - title (string)
+          - department (string)
+          - location (string)
+          - employment_type (string): Full-time, Part-time, Contract, Internship
+          - salary_range (string)
+          - description (string): A complete Markdown description (About, Responsibilities, Requirements).
+          
+          Infer reasonable defaults for missing info.`
+        },
+        {
+          role: "user",
+          content: `Generate a job listing for: ${userPrompt}`
+        }
+      ],
+      model: "llama-3.3-70b-versatile",
+      response_format: { type: "json_object" }
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty AI response");
+
+    const data = JSON.parse(content);
+    return { success: true, data };
+
+  } catch (error: any) {
+    console.error("AI Error:", error);
+    return { success: false, message: "Failed to generate job." };
+  }
+}
+
+// --- 6. LEGACY AI SUPPORT (To prevent breaking other files) ---
+export async function generateAiJobDescription(title: string, skills: string) {
+    const result = await generateFullJobWithAI(`${title}. Skills: ${skills}`);
+    if (result.success && result.data) {
+        return { success: true, description: result.data.description };
+    }
+    return { success: false, message: result.message };
 }
