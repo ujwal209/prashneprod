@@ -7,7 +7,7 @@ import {
   Loader2, XCircle, ChevronUp, AlertTriangle, GripHorizontal
 } from "lucide-react";
 import { PrashneAgentChat } from "./prashne-agent-chat";
-import { ProblemDescription } from "./problem-description";
+import { ProblemDescription } from "@/components/workspace/problem-description"; // Ensure correct import path
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,16 +23,32 @@ import { Badge } from "@/components/ui/badge";
 import { runCodeAction, submitCodeAction } from "@/actions/execute";
 import { toast } from "sonner"; 
 
-interface WorkspaceWrapperProps {
-  problemId: string;
-  problemTitle: string;
+// --- DEFINITIONS ---
+
+// 1. Define the Problem Shape (Matches your DB + Server Component)
+export interface Problem {
+  id: string;
+  title: string;
+  slug: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  acceptance_rate: number;
+  topics: string[];
   description: string;
+  hints: string[];
+  companies: string[];
+  starter_code: { python: string; javascript: string; cpp: string };
+}
+
+// 2. Define Props
+interface WorkspaceWrapperProps {
+  problem: Problem;
   starterCode: { python: string; javascript: string; cpp: string };
 }
 
-export function WorkspaceWrapper({ problemId, problemTitle, description, starterCode }: WorkspaceWrapperProps) {
+export function WorkspaceWrapper({ problem, starterCode }: WorkspaceWrapperProps) {
+  // State
   const [language, setLanguage] = useState<"python" | "javascript" | "cpp">("python");
-  const [code, setCode] = useState(starterCode.python);
+  const [code, setCode] = useState(starterCode.python || ""); // Initialize with Python default
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("description");
   
@@ -49,10 +65,14 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
 
   const { theme, setTheme } = useTheme();
 
+  // --- HANDLERS ---
+
   const handleLanguageChange = (newLang: string) => {
     const lang = newLang as "python" | "javascript" | "cpp";
     setLanguage(lang);
-    setCode(starterCode[lang]);
+    // Switch code to the starter code for that language
+    // In a real app, you might want to save user's draft per language in localStorage
+    setCode(starterCode[lang] || "");
   };
 
   const toggleConsole = () => {
@@ -77,14 +97,15 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
     setTestResults(null);
     
     try {
-      const result = await runCodeAction(code, language, problemTitle);
+      // Execute Code via Server Action
+      const result = await runCodeAction(code, language, problem.title);
       
       if (result.success && result.data) {
         setTestResults(result.data.testResults);
         if (result.data.status === "Accepted") {
-            toast.success("All test cases passed!");
+            toast.success("Run Successful: All basic tests passed.");
         } else {
-            toast.error("Some test cases failed.");
+            toast.warning("Run Complete: Some tests failed.");
         }
       } else {
         const errorMsg = result.error || "Unknown execution error";
@@ -92,7 +113,7 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
         toast.error("Execution failed.");
       }
     } catch (err) {
-      setExecutionError("Failed to connect to server.");
+      setExecutionError("Failed to connect to execution server.");
       toast.error("Network error.");
     }
     
@@ -107,7 +128,8 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
     setTestResults(null);
     
     try {
-        const result = await submitCodeAction(code, language, problemId, problemTitle);
+        // Submit Code via Server Action (Records to DB)
+        const result = await submitCodeAction(code, language, problem.id, problem.title);
         
         if (result.success && result.data) {
           setTestResults(result.data.testResults);
@@ -128,6 +150,8 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
     setIsSubmitting(false);
   };
 
+  // --- RENDER ---
+
   return (
     <div className="h-screen w-full flex flex-col bg-[#FAFAFA] dark:bg-[#09090b] overflow-hidden font-sans selection:bg-indigo-500/20">
       
@@ -139,7 +163,7 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
                <Code2 className="h-4 w-4 text-white" />
             </div>
             <h1 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 hidden sm:block tracking-tight">
-              {problemTitle}
+              {problem.title}
             </h1>
           </div>
           {submissionStatus === "Accepted" && (
@@ -229,10 +253,11 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
               </div>
 
               <TabsContent value="description" className="flex-1 h-full m-0 overflow-hidden relative animate-in fade-in zoom-in-95 duration-200">
-                  <ProblemDescription content={description} />
+                  {/* FIX: Pass the full problem object */}
+                  <ProblemDescription problem={problem} />
               </TabsContent>
               <TabsContent value="chat" className="flex-1 h-full m-0 overflow-hidden relative bg-zinc-50/50 dark:bg-[#0c0c0e]">
-                 <PrashneAgentChat currentCode={code} />
+                  <PrashneAgentChat currentCode={code} />
               </TabsContent>
             </Tabs>
           </ResizablePanel>
@@ -245,9 +270,9 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
               
               {/* TOP: Code Editor */}
               <ResizablePanel defaultSize={70} minSize={20} className="flex flex-col bg-white dark:bg-[#0c0c0e] relative">
-                 <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 backdrop-blur-sm">
-                   
-                   <div className="flex items-center gap-3">
+                  <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/20 backdrop-blur-sm">
+                    
+                    <div className="flex items-center gap-3">
                       {!isSidebarOpen && (
                         <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-zinc-200 dark:hover:bg-zinc-800" onClick={() => setIsSidebarOpen(true)}>
                            <PanelLeftOpen size={14} className="text-zinc-500" />
@@ -257,24 +282,24 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
                          <Code2 size={13} className="opacity-70" />
                          <span className="font-mono font-medium">solution.{language === "python" ? "py" : language === "cpp" ? "cpp" : "js"}</span>
                       </div>
-                   </div>
+                    </div>
 
-                   <div className="relative group">
-                      <select 
-                        value={language} 
-                        onChange={(e) => handleLanguageChange(e.target.value)} 
-                        className="appearance-none bg-transparent text-xs font-medium text-zinc-600 dark:text-zinc-300 pr-6 focus:outline-none cursor-pointer hover:text-indigo-500 transition-colors"
-                      >
-                         <option value="python">Python 3.10</option>
-                         <option value="javascript">Node.js 18</option>
-                         <option value="cpp">C++ 20</option>
-                      </select>
-                      <ChevronDown size={12} className="absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none group-hover:text-indigo-500 transition-colors"/>
-                   </div>
-                 </div>
+                    <div className="relative group">
+                       <select 
+                         value={language} 
+                         onChange={(e) => handleLanguageChange(e.target.value)} 
+                         className="appearance-none bg-transparent text-xs font-medium text-zinc-600 dark:text-zinc-300 pr-6 focus:outline-none cursor-pointer hover:text-indigo-500 transition-colors"
+                       >
+                           <option value="python">Python 3.10</option>
+                           <option value="javascript">Node.js 18</option>
+                           <option value="cpp">C++ 20</option>
+                       </select>
+                       <ChevronDown size={12} className="absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none group-hover:text-indigo-500 transition-colors"/>
+                    </div>
+                  </div>
 
-                 <div className="flex-1 relative">
-                    <Editor 
+                  <div className="flex-1 relative">
+                     <Editor 
                         height="100%" 
                         language={language === "cpp" ? "cpp" : language} 
                         value={code} 
@@ -290,7 +315,7 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
                           scrollBeyondLastLine: false,
                         }}
                     />
-                 </div>
+                  </div>
               </ResizablePanel>
 
               {/* --- RESIZABLE HANDLE --- */}
@@ -311,119 +336,119 @@ export function WorkspaceWrapper({ problemId, problemTitle, description, starter
                 
                 {/* Console Header */}
                 <div className="h-9 shrink-0 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0c0e]">
-                   <div className="flex items-center gap-6 h-full">
-                      <button className="h-full border-b-2 border-indigo-500 text-xs font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2 transition-colors">
-                        <CheckCircle2 size={13} className={submissionStatus === "Accepted" ? "text-emerald-500" : "text-zinc-500"} />
-                        Test Results
-                      </button>
-                   </div>
-                   <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-400 hover:text-zinc-100" onClick={toggleConsole}>
-                          {isConsoleCollapsed ? <ChevronUp size={12} /> : <Maximize2 size={12} />}
-                      </Button>
-                   </div>
+                    <div className="flex items-center gap-6 h-full">
+                       <button className="h-full border-b-2 border-indigo-500 text-xs font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2 transition-colors">
+                         <CheckCircle2 size={13} className={submissionStatus === "Accepted" ? "text-emerald-500" : "text-zinc-500"} />
+                         Test Results
+                       </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                       <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-400 hover:text-zinc-100" onClick={toggleConsole}>
+                           {isConsoleCollapsed ? <ChevronUp size={12} /> : <Maximize2 size={12} />}
+                       </Button>
+                    </div>
                 </div>
 
                 {/* Console Body */}
                 <div className="flex-1 p-4 overflow-y-auto font-mono text-sm">
-                   
-                   {/* 1. Loading State */}
-                   {(isRunning || isSubmitting) && (
-                       <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-500">
-                           <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
-                           <span className="text-xs font-medium">
-                               {isSubmitting ? "Running strict submission tests..." : "Compiling and running..."}
-                           </span>
-                       </div>
-                   )}
+                    
+                    {/* 1. Loading State */}
+                    {(isRunning || isSubmitting) && (
+                        <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-500">
+                            <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                            <span className="text-xs font-medium">
+                                {isSubmitting ? "Running strict submission tests..." : "Compiling and running..."}
+                            </span>
+                        </div>
+                    )}
 
-                   {/* 2. Error State */}
-                   {!isRunning && !isSubmitting && executionError && (
-                       <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
-                           <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
-                               <AlertTriangle size={16} />
-                               <span className="font-bold text-xs uppercase tracking-wider">Execution Error</span>
-                           </div>
-                           <p className="text-xs text-red-700 dark:text-red-300 font-mono whitespace-pre-wrap">
-                               {executionError}
-                           </p>
-                       </div>
-                   )}
+                    {/* 2. Error State */}
+                    {!isRunning && !isSubmitting && executionError && (
+                        <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
+                                <AlertTriangle size={16} />
+                                <span className="font-bold text-xs uppercase tracking-wider">Execution Error</span>
+                            </div>
+                            <p className="text-xs text-red-700 dark:text-red-300 font-mono whitespace-pre-wrap">
+                                {executionError}
+                            </p>
+                        </div>
+                    )}
 
-                   {/* 3. Results State */}
-                   {!isRunning && !isSubmitting && testResults && (
-                       <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                           {/* Status Banner */}
-                           {submissionStatus && (
-                               <div className={cn(
-                                   "p-3 rounded-lg border text-xs font-medium mb-4 flex items-center gap-2",
-                                   submissionStatus === "Accepted" 
-                                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                     : "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400"
-                               )}>
-                                   {submissionStatus === "Accepted" ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                                   <div className="flex flex-col">
-                                       <span className="uppercase tracking-wider font-bold">{submissionStatus}</span>
-                                       <span className="font-normal opacity-80">
-                                            Passed {testResults.filter((t: any) => t.passed).length} / {testResults.length} test cases
-                                       </span>
-                                   </div>
-                               </div>
-                           )}
+                    {/* 3. Results State */}
+                    {!isRunning && !isSubmitting && testResults && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                            {/* Status Banner */}
+                            {submissionStatus && (
+                                <div className={cn(
+                                    "p-3 rounded-lg border text-xs font-medium mb-4 flex items-center gap-2",
+                                    submissionStatus === "Accepted" 
+                                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                      : "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400"
+                                )}>
+                                    {submissionStatus === "Accepted" ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                                    <div className="flex flex-col">
+                                        <span className="uppercase tracking-wider font-bold">{submissionStatus}</span>
+                                        <span className="font-normal opacity-80">
+                                             Passed {testResults.filter((t: any) => t.passed).length} / {testResults.length} test cases
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
 
-                           {/* Test Cases List */}
-                           <div className="flex flex-col gap-3">
-                               {testResults.map((result: any, idx: number) => (
-                                   <div key={idx} className="group p-4 bg-white dark:bg-[#0c0c0e] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
-                                       <div className="flex items-center justify-between mb-3">
-                                           <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
-                                             <div className={cn("w-2 h-2 rounded-full ring-2 ring-offset-1 dark:ring-offset-[#0c0c0e]", result.passed ? "bg-emerald-500 ring-emerald-500/30" : "bg-red-500 ring-red-500/30")} />
-                                             Test Case {idx + 1}
-                                           </span>
-                                           <Badge variant="secondary" className={cn("border-0 h-5 text-[10px]", result.passed ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600")}>
-                                             {result.passed ? "Passed" : "Failed"}
-                                           </Badge>
-                                       </div>
-                                       
-                                       <div className="space-y-3">
-                                            <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-md border border-zinc-100 dark:border-zinc-800">
-                                                <div className="text-[10px] text-zinc-400 mb-1 uppercase tracking-wider font-semibold">Input</div>
-                                                <div className="text-xs text-zinc-700 dark:text-zinc-300 font-mono break-all">{result.input}</div>
+                            {/* Test Cases List */}
+                            <div className="flex flex-col gap-3">
+                                {testResults.map((result: any, idx: number) => (
+                                    <div key={idx} className="group p-4 bg-white dark:bg-[#0c0c0e] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
+                                            <div className="flex items-center justify-between mb-3">
+                                                 <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                                   <div className={cn("w-2 h-2 rounded-full ring-2 ring-offset-1 dark:ring-offset-[#0c0c0e]", result.passed ? "bg-emerald-500 ring-emerald-500/30" : "bg-red-500 ring-red-500/30")} />
+                                                   Test Case {idx + 1}
+                                                 </span>
+                                                 <Badge variant="secondary" className={cn("border-0 h-5 text-[10px]", result.passed ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600")}>
+                                                   {result.passed ? "Passed" : "Failed"}
+                                                 </Badge>
                                             </div>
+                                            
+                                            <div className="space-y-3">
+                                                 <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-md border border-zinc-100 dark:border-zinc-800">
+                                                     <div className="text-[10px] text-zinc-400 mb-1 uppercase tracking-wider font-semibold">Input</div>
+                                                     <div className="text-xs text-zinc-700 dark:text-zinc-300 font-mono break-all">{result.input}</div>
+                                                 </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-md border border-zinc-100 dark:border-zinc-800">
-                                                    <div className="text-[10px] text-zinc-400 mb-1 uppercase tracking-wider font-semibold">Your Output</div>
-                                                    <div className={cn("text-xs font-mono break-all", result.passed ? "text-zinc-700 dark:text-zinc-300" : "text-red-600")}>
-                                                        {result.actualOutput}
-                                                    </div>
-                                                </div>
-                                                {!result.passed && (
-                                                    <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-md border border-zinc-100 dark:border-zinc-800">
-                                                        <div className="text-[10px] text-zinc-400 mb-1 uppercase tracking-wider font-semibold">Expected</div>
-                                                        <div className="text-xs text-emerald-600 font-mono break-all">{result.expectedOutput}</div>
-                                                    </div>
-                                                )}
+                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                     <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-md border border-zinc-100 dark:border-zinc-800">
+                                                         <div className="text-[10px] text-zinc-400 mb-1 uppercase tracking-wider font-semibold">Your Output</div>
+                                                         <div className={cn("text-xs font-mono break-all", result.passed ? "text-zinc-700 dark:text-zinc-300" : "text-red-600")}>
+                                                             {result.actualOutput}
+                                                         </div>
+                                                     </div>
+                                                     {!result.passed && (
+                                                         <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2.5 rounded-md border border-zinc-100 dark:border-zinc-800">
+                                                             <div className="text-[10px] text-zinc-400 mb-1 uppercase tracking-wider font-semibold">Expected</div>
+                                                             <div className="text-xs text-emerald-600 font-mono break-all">{result.expectedOutput}</div>
+                                                         </div>
+                                                     )}
+                                                 </div>
                                             </div>
-                                       </div>
-                                   </div>
-                               ))}
-                           </div>
-                       </div>
-                   )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
-                   {/* 4. Empty State */}
-                   {!isRunning && !isSubmitting && !testResults && !executionError && (
-                       <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3 opacity-60">
-                           <div className="p-3 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
-                              <Terminal size={24} />
-                           </div>
-                           <div className="text-center">
-                               <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Ready to execute</p>
-                               <p className="text-xs">Click Run to test your logic or Submit to finalize.</p>
-                           </div>
-                       </div>
-                   )}
+                    {/* 4. Empty State */}
+                    {!isRunning && !isSubmitting && !testResults && !executionError && (
+                        <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3 opacity-60">
+                            <div className="p-3 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
+                               <Terminal size={24} />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Ready to execute</p>
+                                <p className="text-xs">Click Run to test your logic or Submit to finalize.</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>

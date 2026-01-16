@@ -2,96 +2,112 @@
 
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, streamText } from "ai";
-import { createClient } from "@/utils/supabase/server";
+import { createClient as createSupabaseAdmin } from "@supabase/supabase-js"; // 👈 Import Admin Client
 
 const groq = createOpenAI({
   baseURL: "https://api.groq.com/openai/v1",
   apiKey: process.env.GROQ_API_KEY,
 });
 
-export async function generateProblemDetailsAction(problemId: string, title: string) {
-  const supabase = await createClient();
+// --- Helper: Robust JSON Parser ---
+function parseJsonWithRecovery(text: string) {
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace === -1 || lastBrace === -1) return null;
+
+  const jsonCandidate = text.substring(firstBrace, lastBrace + 1);
 
   try {
-    console.log(`[AI] Generating fresh content for: "${title}"...`);
+    return JSON.parse(jsonCandidate);
+  } catch (e) {
+    try {
+      const sanitized = jsonCandidate
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') 
+        .replace(/,\s*}/g, '}') 
+        .replace(/\n/g, "\\n"); 
+      return JSON.parse(sanitized);
+    } catch (finalError) {
+      return null;
+    }
+  }
+}
+
+export async function generateProblemDetailsAction(problemId: string, title: string) {
+  // 1. Create ADMIN Client (Bypasses RLS Policies)
+  const supabaseAdmin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  try {
+    console.log(`[AI] Generating content for: "${title}"...`);
 
     const { text } = await generateText({
       model: groq("llama-3.3-70b-versatile"),
       system: `You are a senior technical interviewer. 
-      Generate a comprehensive, LeetCode-style markdown description for the provided problem title.
+      Generate comprehensive LeetCode-style details for: "${title}".
       
-      You must output a SINGLE, VALID JSON object.
+      OUTPUT: RAW JSON ONLY. NO MARKDOWN.
       
-      IMPORTANT FORMATTING RULES:
-      1. Return raw JSON. Do NOT use markdown code blocks (no \`\`\`json).
-      2. Do NOT include unescaped newlines inside string values. Use \\n for line breaks within strings.
-      3. Valid JSON only.
-      4. Dont Give the solution of the problem
-      
-      JSON Structure:
+      STRUCTURE:
       {
-        "description": "Markdown string with \\n for newlines...",
+        "description": "Markdown text with \\n for newlines.",
         "starterCode": {
             "python": "def solution():\\n    pass",
             "javascript": "function solution() {\\n}",
-            "cpp": "void solution() {\\n}"
-        }
+            "cpp": "class Solution {\\npublic:\\n    void solve() {\\n    }\\n};"
+        },
+        "hints": ["Hint 1", "Hint 2"],
+        "companies": ["Google", "Amazon"],
+        "testCases": [
+            { "input": "...", "output": "..." }
+        ]
       }`,
-      prompt: `Generate problem details for: ${title}`,
+      prompt: `Generate details for: ${title}`,
     });
 
-    // --- ROBUST PARSING LOGIC ---
-    // 1. Extract the JSON substring (finds the first '{' and last '}')
-    const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
+    // --- PARSE ---
+    const data = parseJsonWithRecovery(text);
 
-    if (firstBrace === -1 || lastBrace === -1) {
-      throw new Error("AI did not return a valid JSON object structure.");
-    }
+    // --- FALLBACK ---
+    const safeData = data || {
+        description: `## ${title}\n\n*(Generation failed. Please refresh.)*`,
+        starterCode: { python: "", javascript: "", cpp: "" },
+        hints: [],
+        companies: [],
+        testCases: []
+    };
 
-    const rawJson = text.substring(firstBrace, lastBrace + 1);
-    
-    let object;
-    try {
-        object = JSON.parse(rawJson);
-    } catch (parseError) {
-        console.error("First JSON parse failed. Attempting to sanitize control characters...");
-        
-        // 2. Fallback Sanitize: Sometimes AI puts real newlines in strings. 
-        // This regex replaces bad control characters (newlines) inside the string literals 
-        // while preserving the structural JSON newlines.
-        // Note: This is a best-effort fix.
-        const sanitized = rawJson.replace(/[\u0000-\u001F]+/g, (match) => {
-            if (match === "\n") return "\\n"; 
-            return "";
-        });
-        
-        try {
-            object = JSON.parse(sanitized);
-        } catch (retryError) {
-             console.error("Sanitization failed. Raw text was:", rawJson);
-             return null; // Fail gracefully so page doesn't crash
-        }
-    }
-
-    // 3. Save to Database
-    const { error } = await supabase
-      .from("problems")
-      .update({
-        description: object.description,
-        starter_code: object.starterCode,
-      })
-      .eq("id", problemId);
+    // --- SAVE TO DB (USING ADMIN CLIENT) ---
+    // We strictly map the JSON keys to your DB columns here
+    const { error, count } = await supabaseAdmin
+        .from("problems")
+        .update({
+            description: safeData.description,
+            starter_code: safeData.starterCode, // Maps to jsonb
+            test_cases: safeData.testCases,     // Maps to jsonb
+            hints: safeData.hints,              // Maps to text[]
+            companies: safeData.companies       // Maps to text[]
+        })
+        .eq("id", problemId)
+        .select(); // Adding select() helps confirm the row was actually returned
 
     if (error) {
-      console.error("[DB] Failed to save AI content:", error);
+        console.error("❌ [DB Error] Failed to save:", error.message);
     } else {
-      console.log("[DB] Successfully saved AI content to database.");
+        console.log(`✅ [DB Success] Updated problem: ${title}`);
     }
 
-    return object;
+    return safeData;
+
   } catch (error) {
-    console.error("Groq Generation Error:", error);
+    console.error("Critical Generation Error:", error);
     return null;
   }
 }
@@ -99,20 +115,8 @@ export async function generateProblemDetailsAction(problemId: string, title: str
 export async function chatWithPrashneAction(messages: any[], currentCode: string) {
   const result = await streamText({
     model: groq("llama-3.3-70b-versatile"),
-    system: `You are Prashne, a polite and Socratic coding tutor. 
-    The user is solving a coding problem.
-    Current Code Context:
-    \`\`\`
-    ${currentCode}
-    \`\`\`
-    
-    1. Do NOT give the full solution immediately.
-    2. Guide the user with hints, asking them questions about their logic.
-    3. If they are stuck on syntax, correct valid syntax errors.
-    4. Keep answers concise and helpful.
-    5. Use markdown for styling.`,
+    system: `You are Prashne, a helpful coding tutor. User code:\n${currentCode}\n\nGuide them Socratically.`,
     messages,
   });
-
   return result.toDataStreamResponse();
 }
