@@ -120,3 +120,53 @@ export async function chatWithPrashneAction(messages: any[], currentCode: string
   });
   return result.toDataStreamResponse();
 }
+
+export async function generateSolutionArticleAction(problemId: string, title: string) {
+  // 1. Admin Client (Bypass RLS)
+  const supabaseAdmin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  try {
+    console.log(`[AI] Generating solution article for: "${title}"...`);
+
+    const { text } = await generateText({
+      model: groq("llama-3.3-70b-versatile"),
+      system: `You are a world-class technical interviewer writing an educational blog post.
+      
+      Create a detailed "Solution & Explanation" article for the coding problem: "${title}".
+      
+      Format: Markdown.
+      Structure:
+      1. **Intuition**: How to think about the problem initially.
+      2. **Approaches**: 
+         - Brute Force (and why it's bad).
+         - Optimal Solution (step-by-step).
+      3. **Complexity Analysis**: Time and Space complexity with proofs.
+      4. **Code Walkthrough**: Explain the tricky parts of the logic.
+      
+      Tone: Encouraging, clear, and professional. Use emojis sparingly.
+      Do NOT output JSON. Output pure Markdown.`,
+      prompt: `Write the article for: ${title}`,
+    });
+
+    // 2. SAVE TO NEW TABLE (problem_articles)
+    const { error } = await supabaseAdmin
+      .from("problem_articles")
+      .upsert({ 
+        problem_id: problemId,
+        content: text
+      }, { onConflict: 'problem_id' }); // Updates if exists, inserts if new
+
+    if (error) {
+        console.error("Failed to save article:", error);
+    }
+
+    return text;
+  } catch (error) {
+    console.error("Article Generation Error:", error);
+    return "## Error\nCould not generate article. Please try again.";
+  }
+}

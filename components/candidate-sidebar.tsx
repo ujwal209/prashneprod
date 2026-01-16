@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image"; // 👈 Imported
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -9,10 +9,10 @@ import {
   Code2,
   Video,
   Trophy,
-  Settings,
   Menu,
   User,
-  LifeBuoy
+  LayoutList,
+  Bot // 👈 Imported Bot icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -22,14 +22,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // --- Navigation Config ---
 const platformItems = [
   { title: "Dashboard", href: "/candidate/dashboard", icon: LayoutDashboard },
+  { title: "Sheets", href: "/candidate/sheets", icon: LayoutList },
   { title: "Problem Set", href: "/candidate/problems", icon: Code2 },
+  { title: "AI Mentor", href: "/candidate/agent", icon: Bot }, // 👈 Added Agent Here
   { title: "AI Interview", href: "/candidate/interview", icon: Video },
   { title: "Leaderboard", href: "/candidate/leaderboard", icon: Trophy },
 ];
 
 const accountItems = [
   { title: "My Profile", href: "/candidate/profile", icon: User },
-  { title: "Settings", href: "/candidate/settings", icon: Settings },
 ];
 
 // --- Reusable Nav Item Component ---
@@ -70,8 +71,6 @@ export function CandidateSidebar() {
       {/* Logo Header */}
       <div className="flex h-16 shrink-0 items-center px-6 border-b border-zinc-100 dark:border-zinc-800/50">
         <Link href="/candidate/dashboard" className="flex items-center gap-3 group">
-          
-          {/* Logo Container (White Background) */}
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-800 transition-transform group-hover:scale-105 overflow-hidden">
             <Image 
               src="/logo.png" 
@@ -81,7 +80,6 @@ export function CandidateSidebar() {
               className="object-contain" 
             />
           </div>
-          
           <span className="font-bold text-lg tracking-tight text-zinc-900 dark:text-white">
             Prashne
           </span>
@@ -90,7 +88,6 @@ export function CandidateSidebar() {
 
       {/* Navigation Content */}
       <div className="flex-1 flex flex-col gap-6 p-4 overflow-y-auto no-scrollbar">
-        
         <div className="space-y-1">
           <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-600 font-mono">
             Platform
@@ -107,24 +104,6 @@ export function CandidateSidebar() {
           {accountItems.map((item) => (
             <NavItem key={item.href} item={item} isActive={pathname === item.href} />
           ))}
-        </div>
-
-        {/* Help Card */}
-        <div className="mt-auto">
-           <div className="rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-900/50 border border-zinc-200 dark:border-zinc-800 p-4">
-              <div className="flex items-center gap-3 mb-2">
-                 <div className="p-2 rounded-lg bg-white dark:bg-zinc-800 shadow-sm">
-                    <LifeBuoy className="size-4 text-indigo-500" />
-                 </div>
-                 <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-200">Need Help?</p>
-              </div>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-3 leading-relaxed">
-                 Stuck on a problem? Check our docs or ask the AI.
-              </p>
-              <Button size="sm" variant="outline" className="w-full h-8 text-xs bg-white dark:bg-zinc-950">
-                 Documentation
-              </Button>
-           </div>
         </div>
       </div>
 
@@ -166,8 +145,6 @@ export function MobileSidebar() {
         {/* Mobile Header */}
         <div className="flex h-16 items-center px-6 border-b border-zinc-100 dark:border-zinc-800">
           <Link href="/candidate/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-3">
-            
-            {/* Logo Container (White Background) */}
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-800 overflow-hidden">
               <Image 
                 src="/logo.png" 
@@ -177,7 +154,6 @@ export function MobileSidebar() {
                 className="object-contain" 
               />
             </div>
-            
             <span className="font-bold text-lg text-zinc-900 dark:text-white">Prashne</span>
           </Link>
         </div>
