@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { generateSolutionArticleAction } from "@/actions/groq";
+import { generateSolutionArticleAction } from "@/actions/articles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
