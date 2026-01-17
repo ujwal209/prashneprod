@@ -1,58 +1,40 @@
-export const maxDuration = 30;
+import { createOpenAI } from "@ai-sdk/openai";
+import { streamText } from "ai";
+
+const groq = createOpenAI({
+  baseURL: "https://api.groq.com/openai/v1",
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 export async function POST(req: Request) {
-    try {
-        const { messages, currentCode } = await req.json();
+  const { messages, currentCode, candidateProfile } = await req.json();
 
-        const systemMessage = {
-            role: "system",
-            content: `You are Prashne, a helpful and Socratic coding tutor.
+  // Create a personalized system prompt
+  const systemPrompt = `You are Prashne, an expert coding tutor.
+  
+  USER CONTEXT:
+  Name: ${candidateProfile?.name || "Candidate"}
+  Level: ${candidateProfile?.experience_level || "Unknown"}
+  Skills: ${candidateProfile?.skills || "General"}
 
-Current Code Context:
-\`\`\`
-${currentCode || "No code provided yet"}
-\`\`\`
+  CURRENT TASK:
+  The user is working on a coding problem. 
+  Editor Content:
+  \`\`\`
+  ${currentCode}
+  \`\`\`
 
-Guidelines:
-1. DO NOT give the full solution immediately
-2. Guide the user with hints and questions about their logic
-3. If they're stuck on syntax, provide corrections
-4. Keep answers concise and helpful
-5. Use markdown for code formatting`
-        };
+  INSTRUCTIONS:
+  1. Address the user by name occasionally.
+  2. If you provide code, use standard markdown code blocks (e.g., \`\`\`python ... \`\`\`).
+  3. Be Socratic: Guide them rather than giving the answer immediately, unless they are stuck.
+  4. Keep responses concise and encouraging.`;
 
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                messages: [systemMessage, ...messages],
-                stream: true,
-                temperature: 0.7,
-                max_tokens: 1024,
-            }),
-        });
+  const result = await streamText({
+    model: groq("llama-3.3-70b-versatile"),
+    system: systemPrompt,
+    messages,
+  });
 
-        if (!response.ok) {
-            throw new Error(`Groq API error: ${response.status}`);
-        }
-
-        // Return the streaming response directly
-        return new Response(response.body, {
-            headers: {
-                "Content-Type": "text/event-stream",
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-            },
-        });
-    } catch (error) {
-        console.error("Chat API Error:", error);
-        return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-        });
-    }
+  return result.toDataStreamResponse();
 }
